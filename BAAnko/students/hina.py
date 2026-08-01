@@ -53,7 +53,7 @@ class SorasakiHina(Student):
             dmg.append(target.hit(self, add=round(self.atk * 0.27), dmg_split=self.mag_count[1]))
         return tuple(dmg)
 
-    def decider(self, context: "Battle") -> tuple[Action]:
+    def decider(self, context: "Battle") -> tuple[Action,...]:
         al: list[Action] = []
         enemies = context.p_units if self.is_enemy else context.e_units
         for enemy in UnitChoiceDice("谁被攻击了？", enemies, 1).roll():

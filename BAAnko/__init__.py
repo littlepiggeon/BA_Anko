@@ -9,8 +9,15 @@ init(autoreset=True)
 
 #################### UTILS & DICE ####################
 
+
 class Dice:
-    def __init__(self, name: str, maximum: int = 100, correction: dict | None = None, times: int = 1):
+    def __init__(
+        self,
+        name: str,
+        maximum: int = 100,
+        correction: dict | None = None,
+        times: int = 1,
+    ):
         self.name = name
         self.maximum = maximum
         self.correction = correction
@@ -19,18 +26,20 @@ class Dice:
         self.times = times
 
     def roll(self):
-        print(f"{self.name} {self.times}d{self.maximum} ", end='')
+        print(f"{self.name} {self.times}d{self.maximum} ", end="")
         r = rd.randint(1, self.maximum)
         if self.correction is not None:
             r += sum(self.correction.values())
             for k, v in self.correction.items():
-                print(f"+{v}({k}) ", end='')
+                print(f"+{v}({k}) ", end="")
         print(f" = {r}")
         return r
 
 
 class ProbabilityDice:
-    def __init__(self, name: str, probability: float, show: bool = True, end: str = "\n"):
+    def __init__(
+        self, name: str, probability: float, show: bool = True, end: str = "\n"
+    ):
         self.name = name
         self.probability = probability
         self.show = show
@@ -40,13 +49,21 @@ class ProbabilityDice:
         r = rd.random() < self.probability
         if self.show:
             print(
-                f"[判定]{self.name} 通过率{self.probability * 100:.1f}% " + ("通过" if r else "不通过"),
-                end=self.end)
+                f"[判定]{self.name} 通过率{self.probability * 100:.1f}% "
+                + ("通过" if r else "不通过"),
+                end=self.end,
+            )
         return r
 
 
 class UnitChoiceDice:
-    def __init__(self, name: str, choices: Sequence["Unit"], times: int = 1, repeatable: bool = False):
+    def __init__(
+        self,
+        name: str,
+        choices: Sequence["Unit"],
+        times: int = 1,
+        repeatable: bool = False,
+    ):
         self.name = name
         self.choices = [i for i in choices if i.hp > 0]
         self.times = min(len(self.choices), times)
@@ -65,6 +82,7 @@ class UnitChoiceDice:
 
 
 #################### BUFF SYSTEM ####################
+
 
 class BuffAlreadyOver(Exception):
     pass
@@ -173,7 +191,7 @@ class Buffs:
     def __str__(self) -> str:
         if not self.buffs:
             return ""
-        return '[' + ' '.join(str(buff) for buff in self.buffs) + ']'
+        return "[" + " ".join(str(buff) for buff in self.buffs) + "]"
 
     def take(self, obj: "Unit"):
         # 逆序遍历以便安全删除
@@ -194,6 +212,7 @@ class Buffs:
 
 #################### ACTION SYSTEM ####################
 
+
 class Action:
     def __init__(self, subject: "Unit", object_: "Unit"):
         self.subject = subject
@@ -204,14 +223,20 @@ class Action:
 
 
 class AttackAction(Action):
-    def __init__(self, subject: "Unit", object_: "Unit", damages: Sequence[int], buffs: Optional[Buffs] = None):
+    def __init__(
+        self,
+        subject: "Unit",
+        object_: "Unit",
+        damages: Sequence[int],
+        buffs: Optional[Buffs] = None,
+    ):
         super().__init__(subject, object_)
         self.damages = damages
         self.buffs = buffs
         print(str(self))
 
     def __str__(self) -> str:
-        dmg_str = ' '.join(
+        dmg_str = " ".join(
             (str(dmg) if dmg else f"{Fore.BLUE}MISS{Style.RESET_ALL}")
             for dmg in self.damages
         )
@@ -219,6 +244,7 @@ class AttackAction(Action):
 
 
 #################### UNIT SYSTEM ####################
+
 
 class Timer:
     def __init__(self, r: int, action: Callable[["Battle"], Action]):
@@ -295,7 +321,9 @@ class Unit(ABC):
                 break
         return tuple(dmg)
 
-    def hit(self, attacker: "Unit", rate=1, add: int = 0, dmg_split: int = 1) -> int:
+    def hit(
+        self, attacker: "Unit", rate: float | int = 1, add: int = 0, dmg_split: int = 1
+    ) -> int:
         if (not dmg_split.is_integer()) or dmg_split < 1:
             raise ValueError("你这伤害分摊数怎么回事？")
 
@@ -309,8 +337,7 @@ class Unit(ABC):
         if ProbabilityDice("", success_rate, show=False).roll():
             # 伤害计算
             stability_factor = rd.uniform(
-                attacker.stability / (attacker.stability + 1000) + 0.2,
-                1.0
+                attacker.stability / (attacker.stability + 1000) + 0.2, 1.0
             )
 
             def_factor = (self.def_ + 1666.66) / 1666.66
@@ -318,18 +345,22 @@ class Unit(ABC):
                 def_factor = 1.25
 
             base_dmg = (attacker.atk * rate * stability_factor) / def_factor
-            damage = round(base_dmg) // max(1, attacker.mag_count[1])
+            damage = (base_dmg) / max(1, attacker.mag_count[1])
 
             # 暴击判定
-            crit_chance = (attacker.crit - self.crit_res) / (attacker.crit - self.crit_res + 666.66)
+            crit_chance = (attacker.crit - self.crit_res) / (
+                attacker.crit - self.crit_res + 666.66
+            )
             crit_chance = max(0, min(1, crit_chance))  # 限制在0-1
 
             if ProbabilityDice("", crit_chance, show=False).roll():
-                damage = round(damage * attacker.crit_dmg)
+                damage = damage * attacker.crit_dmg
 
-            damage //= dmg_split
+            damage /= dmg_split
 
             damage += add
+
+            damage = round(damage)
 
             # 护盾扣除
             if self.buffs.has_buff(Barrier):
@@ -347,10 +378,10 @@ class Unit(ABC):
         return damage
 
     @abstractmethod
-    def decider(self, context: "Battle") -> tuple[Action]:
+    def decider(self, context: "Battle") -> tuple[Action, ...]:
         pass
 
-    def act(self, context: "Battle") -> tuple[Action]:
+    def act(self, context: "Battle") -> tuple[Action, ...]:
         al: List[Action] = []
         self.decider(context)
         with BuffRemainer(self):
@@ -365,19 +396,24 @@ class Student(Unit):
     ex_cost: int
 
     @abstractmethod
-    def ex_skill(self, context: "Battle"): pass
+    def ex_skill(self, context: "Battle") -> tuple[Action, ...] | None:
+        pass
 
     @abstractmethod
-    def basic_skill(self, context: "Battle"): pass
+    def basic_skill(self, context: "Battle") -> tuple[Action, ...] | None:
+        pass
 
     @abstractmethod
-    def enhanced_skill(self, context: "Battle"): pass
+    def enhanced_skill(self, context: "Battle") -> tuple[Action, ...] | None:
+        pass
 
     @abstractmethod
-    def sub_skill(self, context: "Battle"): pass
+    def sub_skill(self, context: "Battle") -> tuple[Action, ...] | None:
+        pass
 
 
 #################### BATTLE SYSTEM ####################
+
 
 class Battle:
     def __init__(self, p_units: List[Unit], e_units: List[Unit], sensei: bool = True):
@@ -420,7 +456,12 @@ class Battle:
                 if isinstance(p_unit, Student):
                     if p_unit.ex_cost <= self.cost:
                         if self.sensei:
-                            if input(f"是否使用EX技能({p_unit.ex_cost}/{self.cost})[Y/N(默认)]").upper() == 'Y':
+                            if (
+                                input(
+                                    f"是否使用EX技能({p_unit.ex_cost}/{self.cost})[Y/N(默认)]"
+                                ).upper()
+                                == "Y"
+                            ):
                                 p_unit.ex_skill(self)
                         else:
                             if ProbabilityDice("是否使用EX技能", 0.5).roll():
@@ -437,8 +478,10 @@ class Battle:
                 print()
                 self.cost = min(10, self.cost + 1)
 
-            if self.sensei: input()
-            if self.check_victory(): break
+            if self.sensei:
+                input()
+            if self.check_victory():
+                break
 
             print(f"\n【敌方回合】")
             for e_unit in self.e_units:
@@ -457,13 +500,15 @@ class Battle:
                         print(f"  > {act}")
                 print()
 
-            if self.sensei: input()
-            if self.check_victory(): break
+            if self.sensei:
+                input()
+            if self.check_victory():
+                break
 
             self.turn += 1
             # self.cost = min(10, self.cost + len([i for i in self.p_units if i.hp > 0]))
 
-            print("状态".center(10, '*'))
+            print("状态".center(10, "*"))
             print(f"COST: {self.cost}")
             print("【友方】")
             for p_unit in self.p_units:
@@ -473,4 +518,5 @@ class Battle:
             for e_unit in self.e_units:
                 if e_unit.hp > 0:
                     print(f"{e_unit.nickname}:{e_unit.hp} {e_unit.buffs}")
-            if self.sensei: input()
+            if self.sensei:
+                input()
