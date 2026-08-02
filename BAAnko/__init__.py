@@ -1,3 +1,4 @@
+from enum import Enum
 import random as rd
 from abc import abstractmethod, ABC
 from typing import Callable, Sequence, List, Optional, Union, Type
@@ -79,6 +80,30 @@ class UnitChoiceDice:
             r = rd.sample(list(self.choices), k)
         print(f"选择攻击[{', '.join(u.nickname for u in r)}]")
         return r
+
+
+class Attribute(Enum):
+    GRAY = 0
+    RED = 1
+    YELLOW = 2
+    GREEN = 3
+    BLUE = 4
+    VIOLET = 5
+
+
+def restraintAttributeDamageMultiplier(
+    attacker: "Unit", defender: "Unit"
+) -> float | int:
+    """属性克制伤害倍率"""
+    TABLE = {
+        0: (1, 1, 1, 1, 1, 1),
+        1: (1, 2, 1, 1, 0.5, 0.5),
+        2: (1, 0.5, 2, 1, 1, 1),
+        3: (1, 0.5, 1.5, 2, 1, 1),
+        4: (1, 1, 0.5, 0.5, 2, 1),
+        5: (1, 1, 0.5, 0.5, 1.5, 2),
+    }
+    return TABLE[attacker.attr_atk.value][defender.attr_def.value]
 
 
 #################### BUFF SYSTEM ####################
@@ -297,6 +322,9 @@ class Unit(ABC):
     name: str = "Unknown"
     affiliation: str = "Neutral"
 
+    attr_atk: Attribute
+    attr_def: Attribute
+
     def __init__(self, nickname: str = "", is_enemy=False):
         self.nickname = nickname if nickname else self.name
         self.hp = self.max_hp
@@ -344,7 +372,12 @@ class Unit(ABC):
             if def_factor < 1.25:
                 def_factor = 1.25
 
-            base_dmg = (attacker.atk * rate * stability_factor) / def_factor
+            base_dmg = (
+                attacker.atk
+                * rate
+                * restraintAttributeDamageMultiplier(attacker, self)
+                * stability_factor
+            ) / def_factor
             damage = (base_dmg) / max(1, attacker.mag_count[1])
 
             # 暴击判定

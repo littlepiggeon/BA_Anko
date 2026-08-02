@@ -18,6 +18,9 @@ class SorasakiHina(Student):
     name = "日奈"
     affiliation = "风纪委员会"
 
+    attr_atk = Attribute.RED
+    attr_def = Attribute.YELLOW
+
     ex_cost = 7
 
     def __init__(self, nickname: str = "", is_enemy=False):
@@ -29,8 +32,9 @@ class SorasakiHina(Student):
 
         context.cost -= 4
         e_units = context.p_units if self.is_enemy else context.e_units
-        for enemy in UnitChoiceDice("谁被攻击了？", e_units,
-                                    Dice("击中了多少人？", len(e_units)).roll()).roll():
+        for enemy in UnitChoiceDice(
+            "谁被攻击了？", e_units, Dice("击中了多少人？", len(e_units)).roll()
+        ).roll():
             dmg: list[int] = []
             for _ in range(10):
                 dmg.append(enemy.hit(self, 0.636, round(self.atk * 0.27)))
@@ -50,10 +54,14 @@ class SorasakiHina(Student):
     def normal_attack(self, target: "Unit") -> tuple[int, ...]:
         dmg: list[int] = []
         for _ in range(self.mag_count[1]):
-            dmg.append(target.hit(self, add=round(self.atk * 0.27), dmg_split=self.mag_count[1]))
+            dmg.append(
+                target.hit(
+                    self, add=round(self.atk * 0.27), dmg_split=self.mag_count[1]
+                )
+            )
         return tuple(dmg)
 
-    def decider(self, context: "Battle") -> tuple[Action,...]:
+    def decider(self, context: "Battle") -> tuple[Action, ...]:
         al: list[Action] = []
         enemies = context.p_units if self.is_enemy else context.e_units
         for enemy in UnitChoiceDice("谁被攻击了？", enemies, 1).roll():

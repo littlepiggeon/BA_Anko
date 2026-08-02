@@ -18,6 +18,9 @@ class TakanashiHoshino(Student):
     name = "星野"
     affiliation = "对策委员会"
 
+    attr_atk = Attribute.YELLOW
+    attr_def = Attribute.YELLOW
+
     ex_cost = 4
 
     def __init__(self, nickname: str = "", is_enemy: bool = False):
@@ -31,8 +34,9 @@ class TakanashiHoshino(Student):
 
         context.cost -= 4
         e_units = context.p_units if self.is_enemy else context.e_units
-        for enemy in UnitChoiceDice("谁被攻击了？", e_units,
-                                    Dice("击中了多少人？", len(e_units)).roll()).roll():
+        for enemy in UnitChoiceDice(
+            "谁被攻击了？", e_units, Dice("击中了多少人？", len(e_units)).roll()
+        ).roll():
             dmg: list[int] = []
             for _ in range(5):
                 dmg.append(enemy.hit(self, 0.872))
@@ -63,7 +67,9 @@ class TakanashiHoshino(Student):
     def decider(self, context: "Battle"):
         al: list[Action] = []
         enemies = context.p_units if self.is_enemy else context.e_units
-        for enemy in UnitChoiceDice("谁被攻击了？", enemies, min(3, Dice("击中了多少人？", len(enemies)).roll())).roll():
+        for enemy in UnitChoiceDice(
+            "谁被攻击了？", enemies, min(3, Dice("击中了多少人？", len(enemies)).roll())
+        ).roll():
             al.append(AttackAction(self, enemy, self.normal_attack(enemy)))
         self.basic_skill(context)
         return tuple(al)
