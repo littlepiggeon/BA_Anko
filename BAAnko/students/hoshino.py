@@ -38,9 +38,10 @@ class TakanashiHoshino(Student):
             "谁被攻击了？", e_units, Dice("击中了多少人？", len(e_units)).roll()
         ).roll():
             dmg: list[int] = []
+            o_e_HP = enemy.hp
             for _ in range(5):
                 dmg.append(enemy.hit(self, 0.872))
-            al.append(AttackAction(self, enemy, dmg))
+            al.append(AttackAction(self, enemy, dmg, o_e_HP))
         self.sub_skill(context)
         return tuple(al)
 
@@ -59,17 +60,15 @@ class TakanashiHoshino(Student):
         self.buffs.add(Barrier(round(1.08 * self.healing), 2))
 
     def normal_attack(self, target: "Unit") -> tuple[int, ...]:
-        dmg: list[int] = []
-        for _ in range(rd.choices((1, 2, 3), (1, 2, 1), k=1)[0]):
-            dmg.append(target.hit(self, add=round(self.atk * 0.27)))
-        return tuple(dmg)
+        return (target.hit(self, add=round(self.atk * 0.27)),)
 
     def decider(self, context: "Battle"):
         al: list[Action] = []
-        enemies = context.p_units if self.is_enemy else context.e_units
+        e_units = context.your_enemy(self.is_enemy)
         for enemy in UnitChoiceDice(
-            "谁被攻击了？", enemies, min(3, Dice("击中了多少人？", len(enemies)).roll())
+            "谁被攻击了？", e_units, Dice("攻击到的人数：", min(2,len(e_units))).roll()
         ).roll():
-            al.append(AttackAction(self, enemy, self.normal_attack(enemy)))
+            o_e_HP = enemy.hp
+            al.append(AttackAction(self, enemy, self.normal_attack(enemy), o_e_HP))
         self.basic_skill(context)
         return tuple(al)

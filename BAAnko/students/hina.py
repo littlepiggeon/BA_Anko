@@ -31,14 +31,15 @@ class SorasakiHina(Student):
         al: list[Action] = []
 
         context.cost -= 4
-        e_units = context.p_units if self.is_enemy else context.e_units
+        e_units = context.your_enemy(self.is_enemy)
         for enemy in UnitChoiceDice(
-            "谁被攻击了？", e_units, Dice("击中了多少人？", len(e_units)).roll()
+            "谁被攻击了？", e_units, Dice("攻击到的人数：", min(3,len(e_units))).roll()
         ).roll():
+            o_e_HP = enemy.hp
             dmg: list[int] = []
             for _ in range(10):
                 dmg.append(enemy.hit(self, 0.636, round(self.atk * 0.27)))
-            al.append(AttackAction(self, enemy, dmg))
+            al.append(AttackAction(self, enemy, dmg, o_e_HP))
         return tuple(al)
 
     def basic_skill(self, context: "Battle"):
@@ -63,7 +64,8 @@ class SorasakiHina(Student):
 
     def decider(self, context: "Battle") -> tuple[Action, ...]:
         al: list[Action] = []
-        enemies = context.p_units if self.is_enemy else context.e_units
-        for enemy in UnitChoiceDice("谁被攻击了？", enemies, 1).roll():
-            al.append(AttackAction(self, enemy, self.normal_attack(enemy)))
+        e_units = context.your_enemy(self.is_enemy)
+        for enemy in UnitChoiceDice("谁被攻击了？", e_units, 1).roll():
+            o_e_HP = enemy.hp
+            al.append(AttackAction(self, enemy, self.normal_attack(enemy), o_e_HP))
         return tuple(al)

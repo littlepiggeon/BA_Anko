@@ -3,7 +3,7 @@ import random as rd
 from abc import abstractmethod, ABC
 from typing import Callable, Sequence, List, Optional, Union, Type
 
-from colorama import Fore, Style, init
+from colorama import Fore, Style, Back, init
 
 init(autoreset=True)
 
@@ -17,17 +17,13 @@ class Dice:
         name: str,
         maximum: int = 100,
         correction: dict | None = None,
-        times: int = 1,
     ):
         self.name = name
         self.maximum = maximum
         self.correction = correction
-        if not times:
-            raise ValueError("这什么鬼次数？！")
-        self.times = times
 
     def roll(self):
-        print(f"{self.name} {self.times}d{self.maximum} ", end="")
+        print(f"{self.name} 1d{self.maximum} ", end="")
         r = rd.randint(1, self.maximum)
         if self.correction is not None:
             r += sum(self.correction.values())
@@ -253,19 +249,33 @@ class AttackAction(Action):
         subject: "Unit",
         object_: "Unit",
         damages: Sequence[int],
-        buffs: Optional[Buffs] = None,
+        originEnemyHP: int,
     ):
         super().__init__(subject, object_)
         self.damages = damages
-        self.buffs = buffs
+        self._enemyHP = originEnemyHP
         print(str(self))
 
     def __str__(self) -> str:
+        match restraintAttributeDamageMultiplier(self.subject, self.object):
+            case 0:
+                resistance = "免疫"
+            case 0.5:
+                resistance = f"{Fore.BLUE}抵抗{Fore.RESET}"
+            case 1:
+                resistance = ""
+            case 1.5:
+                resistance = f"{Fore.LIGHTYELLOW_EX}强效{Fore.RESET}"
+            case 2:
+                resistance = f"{Fore.YELLOW}克制{Fore.RESET}"
+            case _:
+                resistance = ""
+
         dmg_str = " ".join(
-            (str(dmg) if dmg else f"{Fore.BLUE}MISS{Style.RESET_ALL}")
+            (str(dmg) if dmg else f"{Back.BLACK}MISS{Back.RESET}")
             for dmg in self.damages
         )
-        return f"{self.subject.nickname} 攻击 {self.object.nickname} : [{dmg_str}]total={sum(self.damages)}"
+        return f"{self.subject.nickname} 攻击 {self.object.nickname} : {resistance}[{dmg_str}]total={(sum_dmg:=sum(self.damages))}\n{self.object.nickname} HP: {self._enemyHP}-{sum_dmg}={self.object.hp}"
 
 
 #################### UNIT SYSTEM ####################
@@ -449,6 +459,9 @@ class Student(Unit):
 
 
 class Battle:
+    alive_p_units: List[Unit]
+    alive_e_units: List[Unit]
+
     def __init__(self, p_units: List[Unit], e_units: List[Unit], sensei: bool = True):
         self.p_units = p_units
         self.e_units = e_units
@@ -465,8 +478,8 @@ class Battle:
         print(f"{'-' * 30}\n")
 
     def check_victory(self) -> bool:
-        p_alive = any(u.hp > 0 for u in self.p_units)
-        e_alive = any(u.hp > 0 for u in self.e_units)
+        p_alive = any(self.alive_p_units)
+        e_alive = any(self.alive_e_units)
         if not p_alive:
             print("\n>>> 失败<<<")
             return True
@@ -474,6 +487,18 @@ class Battle:
             print("\n>>> 胜利<<<")
             return True
         return False
+
+    def __getattr__(self, name):
+        match name:
+            case "alive_p_units":
+                return [p_unit for p_unit in self.p_units if p_unit.hp > 0]
+            case "alive_e_units":
+                return [e_unit for e_unit in self.e_units if e_unit.hp > 0]
+            case _:
+                raise AttributeError(f'"{name}"')
+
+    def your_enemy(self, is_enemy: bool):
+        return self.alive_p_units if is_enemy else self.alive_e_units
 
     def start(self, max_turns=100):
         while self.turn <= max_turns:
@@ -497,7 +522,7 @@ class Battle:
                             ):
                                 p_unit.ex_skill(self)
                         else:
-                            if ProbabilityDice("是否使用EX技能", 0.5).roll():
+                            if ProbabilityDice("是否使用EX技能", 0.75).roll():
                                 p_unit.ex_skill(self)
 
                 if p_unit.loading:
@@ -539,7 +564,6 @@ class Battle:
                 break
 
             self.turn += 1
-            # self.cost = min(10, self.cost + len([i for i in self.p_units if i.hp > 0]))
 
             print("状态".center(10, "*"))
             print(f"COST: {self.cost}")
