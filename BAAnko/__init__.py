@@ -1,9 +1,10 @@
-from enum import Enum
 import random as rd
+import sys
 from abc import abstractmethod, ABC
-from typing import Callable, Sequence, List, Optional, Union, Type
+from enum import IntEnum, Flag
+from typing import Callable, Sequence, List, Union, Type, TextIO
 
-from colorama import Fore, Style, Back, init
+from colorama import init, Fore, Back, Style
 
 init(autoreset=True)
 
@@ -13,10 +14,10 @@ init(autoreset=True)
 
 class Dice:
     def __init__(
-        self,
-        name: str,
-        maximum: int = 100,
-        correction: dict | None = None,
+            self,
+            name: str,
+            maximum: int = 100,
+            correction: dict | None = None,
     ):
         self.name = name
         self.maximum = maximum
@@ -35,7 +36,7 @@ class Dice:
 
 class ProbabilityDice:
     def __init__(
-        self, name: str, probability: float, show: bool = True, end: str = "\n"
+            self, name: str, probability: float, show: bool = True, end: str = "\n"
     ):
         self.name = name
         self.probability = probability
@@ -55,11 +56,11 @@ class ProbabilityDice:
 
 class UnitChoiceDice:
     def __init__(
-        self,
-        name: str,
-        choices: Sequence["Unit"],
-        times: int = 1,
-        repeatable: bool = False,
+            self,
+            name: str,
+            choices: Sequence["Unit"],
+            times: int = 1,
+            repeatable: bool = False,
     ):
         self.name = name
         self.choices = [i for i in choices if i.hp > 0]
@@ -74,11 +75,11 @@ class UnitChoiceDice:
         else:
             k = min(self.times, len(self.choices))
             r = rd.sample(list(self.choices), k)
-        print(f"选择攻击[{', '.join(u.nickname for u in r)}]")
+        print(f"选择攻击[{', '.join(str(u) for u in r)}]")
         return r
 
 
-class Attribute(Enum):
+class Attribute(IntEnum):
     GRAY = 0
     RED = 1
     YELLOW = 2
@@ -87,19 +88,40 @@ class Attribute(Enum):
     VIOLET = 5
 
 
-def restraintAttributeDamageMultiplier(
-    attacker: "Unit", defender: "Unit"
+class Weapon(IntEnum):
+    SG = 0  # 霰弹枪
+    SMG = 1  # 冲锋枪
+    AR = 2  # 突击步枪
+    GL = 3  # 榴弹发射器
+    HG = 4  # 手枪
+    SR = 5  # 狙击步枪
+    RG = 6  # 轨道炮
+    MG = 7  # 机枪
+    RL = 8  # 导弹发射器
+    MT = 9  # 迫击炮
+    FT = 10  # 火焰喷射器
+    SPECEIL = 99
+
+
+W = Weapon
+
+
+def restraint_attribute_damage_multiplier(
+        attacker: "Unit", defender: "Unit"
 ) -> float | int:
     """属性克制伤害倍率"""
-    TABLE = {
-        0: (1, 1, 1, 1, 1, 1),
-        1: (1, 2, 1, 1, 0.5, 0.5),
-        2: (1, 0.5, 2, 1, 1, 1),
-        3: (1, 0.5, 1.5, 2, 1, 1),
-        4: (1, 1, 0.5, 0.5, 2, 1),
-        5: (1, 1, 0.5, 0.5, 1.5, 2),
-    }
-    return TABLE[attacker.attr_atk.value][defender.attr_def.value]
+    table = (
+        (1, 1, 1, 1, 1, 1),
+        (1, 2, 1, 1, 0.5, 0.5),
+        (1, 0.5, 2, 1, 1, 1),
+        (1, 0.5, 1.5, 2, 1, 1),
+        (1, 1, 0.5, 0.5, 2, 1),
+        (1, 1, 0.5, 0.5, 1.5, 2),
+    )
+    return table[attacker.attr_atk.value][defender.attr_def.value]
+
+
+RADM = restraint_attribute_damage_multiplier
 
 
 #################### BUFF SYSTEM ####################
@@ -123,8 +145,7 @@ class Buff(ABC):
         if self.duration > 0:
             self.duration -= 1
         elif self.duration == 0:
-            raise BuffAlreadyOver("Buff效果已结束！")
-        # duration == -1 表示永久
+            raise BuffAlreadyOver("Buff效果已结束")
 
 
 class RatedBuff(Buff):
@@ -197,7 +218,8 @@ class HPRegen(RatedBuff):
 
 
 class Buffs:
-    def __init__(self, *buffs: Buff):
+    def __init__(self, master: "Unit", *buffs: Buff):
+        self.master = master
         self.buffs: List[Buff] = list(buffs)
 
     def __iter__(self):
@@ -212,7 +234,7 @@ class Buffs:
     def __str__(self) -> str:
         if not self.buffs:
             return ""
-        return "[" + " ".join(str(buff) for buff in self.buffs) + "]"
+        return "(" + " ".join(str(buff) for buff in self.buffs) + ")"
 
     def take(self, obj: "Unit"):
         # 逆序遍历以便安全删除
@@ -231,68 +253,96 @@ class Buffs:
             return False
 
 
-#################### ACTION SYSTEM ####################
+# #################### ACTION SYSTEM ####################
+# 
+# 
+# class Action:
+#     def __init__(self, subject: "Unit", object_: "Unit"):
+#         self.subject = subject
+#         self.object = object_
+# 
+#     def __str__(self) -> str:
+#         return f"{self.subject} 对 {self.object} 行动"
+# 
+# 
+# class AttackAction(Action):
+#     def __init__(
+#             self,
+#             subject: "Unit",
+#             object_: "Unit",
+#             damages: Sequence[int],
+#             originEnemyHP: int,
+#     ):
+#         super().__init__(subject, object_)
+#         self.damages = damages
+#         self._enemyHP = originEnemyHP
+#         print(str(self))
+# 
+#     def __str__(self) -> str:
+#         resistance = ""
+#         match RADM(self.subject, self.object):
+#             case 0:
+#                 resistance = f"{Back.RED}Immune{Back.RESET}"
+#             case 0.5:
+#                 resistance = f"{Fore.BLUE}Resist{Fore.RESET}"
+#             case 1.5:
+#                 resistance = f"{Fore.LIGHTYELLOW_EX}Effective{Fore.RESET}"
+#             case 2:
+#                 resistance = f"{Fore.YELLOW}Weak{Fore.RESET}"
+# 
+#         dmg_str = " ".join(
+#             (str(dmg) if dmg else f"{Back.BLACK}MISS{Back.RESET}")
+#             for dmg in self.damages
+#         )
+#         return f"{self.subject} 攻击 {self.object} : {resistance}[{dmg_str}]total={(sum_dmg := sum(self.damages))}\n{self.object} HP: {self._enemyHP}-{sum_dmg}={self.object.hp}"
+# 
+
+#################### EVENT SYSTEM ####################
+class Event:
+    def __init__(self, name: str, action: Callable[["Battle"], None], condition: Callable[["Battle"], bool]):
+        self.name = name
+        self.action = action
+        self.condition = condition
+        self.available = True
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__}(\"{self.name}\")>"
+
+    def trigger(self, context: "Battle"):
+        if self.available:
+            if self.condition(context):
+                self.action(context)
+        else:
+            raise Exception(repr(self), "is not available, should not be triggered")
 
 
-class Action:
-    def __init__(self, subject: "Unit", object_: "Unit"):
-        self.subject = subject
-        self.object = object_
+class EventManager:
+    def __init__(self):
+        self._events: List[Event] = []
 
-    def __str__(self) -> str:
-        return f"{self.subject.nickname} 对 {self.object.nickname} 行动"
+    def __iter__(self):
+        for i in self._events:
+            yield i
 
+    def add(self, event: Event):
+        self._events.append(event)
 
-class AttackAction(Action):
-    def __init__(
-        self,
-        subject: "Unit",
-        object_: "Unit",
-        damages: Sequence[int],
-        originEnemyHP: int,
-    ):
-        super().__init__(subject, object_)
-        self.damages = damages
-        self._enemyHP = originEnemyHP
-        print(str(self))
+    def trigger(self, context: "Battle"):
+        for i in range(len(self._events) - 1, -1, -1):
+            event = self._events[i]
+            if event.available:
+                event.trigger(context)
+            else:
+                self._events.pop(i)
 
-    def __str__(self) -> str:
-        match restraintAttributeDamageMultiplier(self.subject, self.object):
-            case 0:
-                resistance = "免疫"
-            case 0.5:
-                resistance = f"{Fore.BLUE}抵抗{Fore.RESET}"
-            case 1:
-                resistance = ""
-            case 1.5:
-                resistance = f"{Fore.LIGHTYELLOW_EX}强效{Fore.RESET}"
-            case 2:
-                resistance = f"{Fore.YELLOW}克制{Fore.RESET}"
-            case _:
-                resistance = ""
-
-        dmg_str = " ".join(
-            (str(dmg) if dmg else f"{Back.BLACK}MISS{Back.RESET}")
-            for dmg in self.damages
-        )
-        return f"{self.subject.nickname} 攻击 {self.object.nickname} : {resistance}[{dmg_str}]total={(sum_dmg:=sum(self.damages))}\n{self.object.nickname} HP: {self._enemyHP}-{sum_dmg}={self.object.hp}"
+    def clear(self):
+        self._events.clear()
 
 
 #################### UNIT SYSTEM ####################
-
-
-class Timer:
-    def __init__(self, r: int, action: Callable[["Battle"], Action]):
-        self.round = r
-        self.action = action
-        self.r_remaining = self.round
-
-    def act(self, context: "Battle") -> Optional[Action]:
-        self.r_remaining -= 1
-        if self.r_remaining <= 0:
-            self.r_remaining = self.round
-            return self.action(context)
-        return None
+class DMGFlag(Flag):
+    CRIT = 0b1
+    SKILL = 0b10
 
 
 class BuffRemainer:
@@ -329,39 +379,58 @@ class Unit(ABC):
     stability: int
     mag_count: tuple[int, int]  # (弹匣容量, 单次消耗)
 
-    name: str = "Unknown"
-    affiliation: str = "Neutral"
-
+    weapon: int
     attr_atk: Attribute
     attr_def: Attribute
+
+    name: str = "Unknown"
+    affiliation: str = "Neutral"
 
     def __init__(self, nickname: str = "", is_enemy=False):
         self.nickname = nickname if nickname else self.name
         self.hp = self.max_hp
         self.mag = self.mag_count[0]
         self.loading = False
-        self.buffs = Buffs()
+        self.buffs = Buffs(self)
         self.is_enemy = is_enemy
-        self.calendar: List[Timer] = []
+        self.event_manager = EventManager()
 
-    @abstractmethod
-    def normal_attack(self, target: "Unit") -> tuple[int, ...]:
-        dmg = []
-        shots = self.mag_count[1]
-        for _ in range(shots):
-            if self.mag <= 0:
-                self.loading = True
-                break
-            d = target.hit(self, 1)
-            dmg.append(d)
-            self.mag -= 1
-            if target.hp <= 0:
-                break
-        return tuple(dmg)
+    def __str__(self) -> str:
+        return f"{self.nickname}:{self.hp}{self.buffs}"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__}(name=\"{self.name}\", affiliation=\"{self.affiliation}\")>"
+
+    def normal_attack(self, context: "Battle", flag=DMGFlag(0)):
+        enemies = context.your_enemy(self.is_enemy)
+        match self.weapon:
+            case W.SG | W.GL | W.RL | W.MT | W.FT:
+                hit_num = rd.sample((1, 2, 3), 1, counts=(10, 3, 1))[0]
+            case W.SMG | W.AR | W.HG | W.SR | W.RG | W.MG:
+                hit_num = 1
+            case _:
+                raise ValueError(f"Unknown weapon type")
+        self._attack(UnitChoiceDice("谁被攻击了？", enemies, hit_num).roll(),
+                     self.mag_count[1], 1, 0, self.mag_count[1], flag)
+
+    def _attack(self, targets: Sequence["Unit"], attaking_num: int, rate: float | int, add: float | int,
+                dmg_split: int = 1, flag=DMGFlag(0)):
+        for target in targets:
+            reporter = ReportDamage(self, target)
+            reporter.start()
+            for _ in range(attaking_num):
+                dmg, flag = target.hit(self, rate, add, dmg_split, flag)
+                reporter.record(dmg, flag)
+            reporter.report()
 
     def hit(
-        self, attacker: "Unit", rate: float | int = 1, add: int = 0, dmg_split: int = 1
-    ) -> int:
+            self,
+            attacker: "Unit",
+            rate: float | int = 1,
+            add: float | int = 0,
+            dmg_split: int = 1,
+            flag=DMGFlag(0)
+    ) -> tuple[int, DMGFlag]:
         if (not dmg_split.is_integer()) or dmg_split < 1:
             raise ValueError("你这伤害分摊数怎么回事？")
 
@@ -378,30 +447,33 @@ class Unit(ABC):
                 attacker.stability / (attacker.stability + 1000) + 0.2, 1.0
             )
 
-            def_factor = (self.def_ + 1666.66) / 1666.66
-            if def_factor < 1.25:
-                def_factor = 1.25
+            def_factor = 1 + self.def_ / 1666.66
+            if 1 / def_factor < 0.2:
+                def_factor = 5
 
-            base_dmg = (
-                attacker.atk
-                * rate
-                * restraintAttributeDamageMultiplier(attacker, self)
-                * stability_factor
-            ) / def_factor
-            damage = (base_dmg) / max(1, attacker.mag_count[1])
+            damage = (
+                             attacker.atk
+                             * rate
+                             * RADM(attacker, self)
+                             * stability_factor
+                     ) / def_factor
 
             # 暴击判定
             crit_chance = (attacker.crit - self.crit_res) / (
-                attacker.crit - self.crit_res + 666.66
+                    attacker.crit - self.crit_res + 666.66
             )
             crit_chance = max(0, min(1, crit_chance))  # 限制在0-1
 
             if ProbabilityDice("", crit_chance, show=False).roll():
-                damage = damage * attacker.crit_dmg
+                damage = damage * attacker.crit_dmg * (1 - self.crit_dmg_res)
+                flag |= DMGFlag.CRIT
 
             damage /= dmg_split
 
             damage += add
+
+            if damage < 0:
+                damage = 0
 
             damage = round(damage)
 
@@ -418,44 +490,118 @@ class Unit(ABC):
                             self.buffs.buffs.pop(i)
             else:
                 self.hp -= damage
-        return damage
+        return damage, flag
 
-    @abstractmethod
-    def decider(self, context: "Battle") -> tuple[Action, ...]:
-        pass
+    def decider(self, context: "Battle"):
+        self.normal_attack(context)
 
-    def act(self, context: "Battle") -> tuple[Action, ...]:
-        al: List[Action] = []
-        self.decider(context)
+    def act(self, context: "Battle"):
         with BuffRemainer(self):
             self.buffs.take(self)
-            for timer in self.calendar:
-                if (a := timer.act(context)) is not None:
-                    al.append(a)
-        return tuple(al)
+            self.event_manager.trigger(context)
+            self.decider(context)
 
 
 class Student(Unit):
     ex_cost: int
 
     @abstractmethod
-    def ex_skill(self, context: "Battle") -> tuple[Action, ...] | None:
+    def ex_skill(self, context: "Battle"):
         pass
 
     @abstractmethod
-    def basic_skill(self, context: "Battle") -> tuple[Action, ...] | None:
+    def basic_skill(self, context: "Battle"):
         pass
 
     @abstractmethod
-    def enhanced_skill(self, context: "Battle") -> tuple[Action, ...] | None:
+    def enhanced_skill(self, context: "Battle"):
         pass
 
     @abstractmethod
-    def sub_skill(self, context: "Battle") -> tuple[Action, ...] | None:
+    def sub_skill(self, context: "Battle"):
         pass
 
 
 #################### BATTLE SYSTEM ####################
+class Report(ABC):
+    def __init__(self, subject: "Unit|None", object_: "Sequence[Unit]|Unit|None", file: TextIO = sys.stdout):
+        self.subject = subject
+        self.object = object_
+        self.file = file
+
+    @abstractmethod
+    def report(self):
+        pass
+
+    def _print(self, *args, **kwargs):
+        if "file" in kwargs.keys():
+            raise Exception("你要造反？！")
+        print(*args, **kwargs, file=self.file)
+
+
+class ReportDamage(Report):
+    def __init__(self, subject: "Unit", object_: "Unit", file: TextIO = sys.stdout):
+        if (subject is None) or (object_ is None):
+            raise Exception("你要造反？！")
+
+        super().__init__(subject, object_, file)
+        self.oringinal_hp = object_.hp
+        self.active = False
+        self.delt_damage = 0
+        self.resistance = ""
+        match RADM(subject, object_):
+            case 0:
+                self.resistance = f"{Back.RED}Immune{Back.RESET}"
+            case 0.5:
+                self.resistance = f"{Fore.BLUE}Resist{Fore.RESET}"
+            case 1.5:
+                self.resistance = f"{Fore.LIGHTYELLOW_EX}Effective{Fore.RESET}"
+            case 2:
+                self.resistance = f"{Fore.YELLOW}Weak{Fore.RESET}"
+
+    def start(self):
+        self.active = True
+        self._print(f"{self.subject} 攻击 {self.object}：{self.resistance}[ ", end='')
+
+    def record(self, damage: int, flag=DMGFlag(0)):
+        if not self.active:
+            raise Exception(f"{self.__class__.__name__}.start() first")
+        self.delt_damage += damage
+        self._print(
+            f"{Back.LIGHTWHITE_EX if damage == 0 else ''}\
+{Fore.RED if DMGFlag.CRIT in flag else ''}\
+{Style.BRIGHT if DMGFlag.SKILL in flag else ''}\
+{"MISS" if damage == 0 else damage}{Style.RESET_ALL}",
+            end=' ')
+
+    def stop(self):
+        self.active = False
+
+    def report(self):
+        self.stop()
+        self._print(f"]total={self.delt_damage}")
+
+
+class ReportBuff(Report):
+    def __init__(self, object_: "Unit", buff: Buff, file: TextIO = sys.stdout):
+        super().__init__(None, object_, file)
+        self.buff = buff
+
+    def report(self):
+        self._print(f"{self.object} 获得 {self.buff}")
+
+
+class ReportSkill(Report):
+    def __init__(self, subject: "Unit", name: str, enhanced=False, file: TextIO = sys.stdout):
+        super().__init__(subject, None, file)
+        self.name = name
+        self.enhanced = enhanced
+
+    def report(self):
+        if self.enhanced:
+            self._print(f"{self.subject} 技能【{self.name}】生效了")
+        else:
+            self._print(f"{self.subject} 施放了技能【{self.name}】")
 
 
 class Battle:
@@ -467,14 +613,14 @@ class Battle:
         self.e_units = e_units
         self.sensei = sensei
         self.cost = 0
-        self.turn = 1
+        self.round = 1
 
         print(f"\n{'=' * 30}")
         print("战斗开始".center(30))
         print(f"{'=' * 30}")
-        print(" ".join(u.nickname for u in p_units))
+        print(" ".join(str(u) for u in p_units))
         print("VS")
-        print(" ".join(u.nickname for u in e_units))
+        print(" ".join(str(u) for u in e_units))
         print(f"{'-' * 30}\n")
 
     def check_victory(self) -> bool:
@@ -501,13 +647,13 @@ class Battle:
         return self.alive_p_units if is_enemy else self.alive_e_units
 
     def start(self, max_turns=100):
-        while self.turn <= max_turns:
-            print(f"\n--- 第 {self.turn} 回合 ---")
+        while self.round <= max_turns:
+            print(f"\n--- 第 {self.round} 回合 ---")
 
             print(f"【友方回合】")
             for p_unit in self.p_units:
                 if p_unit.hp > 0:
-                    print(f"{p_unit.nickname}开始行动")
+                    print(f"{p_unit} 开始行动")
                 else:
                     continue
 
@@ -515,10 +661,10 @@ class Battle:
                     if p_unit.ex_cost <= self.cost:
                         if self.sensei:
                             if (
-                                input(
-                                    f"是否使用EX技能({p_unit.ex_cost}/{self.cost})[Y/N(默认)]"
-                                ).upper()
-                                == "Y"
+                                    input(
+                                        f"是否使用EX技能({p_unit.ex_cost}/{self.cost})[Y/N(默认)]"
+                                    ).upper()
+                                    == "Y"
                             ):
                                 p_unit.ex_skill(self)
                         else:
@@ -526,13 +672,11 @@ class Battle:
                                 p_unit.ex_skill(self)
 
                 if p_unit.loading:
-                    print(f"  {p_unit.nickname} 正在装弹")
+                    print(f"  {p_unit} 正在装弹")
                     p_unit.loading = False
                     p_unit.mag = p_unit.mag_count[0]
                 else:
-                    actions = p_unit.act(self)
-                    for act in actions:
-                        print(f"  > {act}")
+                    p_unit.act(self)
                 print()
                 self.cost = min(10, self.cost + 1)
 
@@ -544,18 +688,16 @@ class Battle:
             print(f"\n【敌方回合】")
             for e_unit in self.e_units:
                 if e_unit.hp > 0:
-                    print(f"{e_unit.nickname}开始行动")
+                    print(f"{e_unit} 开始行动")
                 else:
                     continue
 
                 if e_unit.loading:
-                    print(f"  {e_unit.nickname} 正在装弹")
+                    print(f"  {e_unit} 正在装弹")
                     e_unit.loading = False
                     e_unit.mag = e_unit.mag_count[0]
                 else:
-                    actions = e_unit.act(self)
-                    for act in actions:
-                        print(f"  > {act}")
+                    e_unit.act(self)
                 print()
 
             if self.sensei:
@@ -563,17 +705,17 @@ class Battle:
             if self.check_victory():
                 break
 
-            self.turn += 1
+            self.round += 1
 
             print("状态".center(10, "*"))
             print(f"COST: {self.cost}")
             print("【友方】")
             for p_unit in self.p_units:
                 if p_unit.hp > 0:
-                    print(f"{p_unit.nickname}:{p_unit.hp} {p_unit.buffs}")
+                    print(p_unit)
             print("【敌方】")
             for e_unit in self.e_units:
                 if e_unit.hp > 0:
-                    print(f"{e_unit.nickname}:{e_unit.hp} {e_unit.buffs}")
+                    print(e_unit)
             if self.sensei:
                 input()

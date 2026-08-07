@@ -18,6 +18,7 @@ class SorasakiHina(Student):
     name = "日奈"
     affiliation = "风纪委员会"
 
+    weapon = W.MG
     attr_atk = Attribute.RED
     attr_def = Attribute.YELLOW
 
@@ -27,45 +28,24 @@ class SorasakiHina(Student):
         super().__init__(nickname, is_enemy)
 
     def ex_skill(self, context: "Battle"):
-        print(f"{self.nickname}使用了【终幕：伊施波设】！")
-        al: list[Action] = []
+        print(f"{self.nickname}使用了【终幕：伊施波设】")
 
-        context.cost -= 4
+        context.cost -= self.ex_cost
         e_units = context.your_enemy(self.is_enemy)
-        for enemy in UnitChoiceDice(
-            "谁被攻击了？", e_units, Dice("攻击到的人数：", min(3,len(e_units))).roll()
-        ).roll():
-            o_e_HP = enemy.hp
-            dmg: list[int] = []
-            for _ in range(10):
-                dmg.append(enemy.hit(self, 0.636, round(self.atk * 0.27)))
-            al.append(AttackAction(self, enemy, dmg, o_e_HP))
-        return tuple(al)
+        self._attack(
+            UnitChoiceDice("谁被攻击了？", e_units,
+                           Dice("攻击到的人数：", min(4, len(e_units))).roll()
+                           ).roll(),
+            10, 0.636, self.atk * 0.027, 1, DMGFlag.SKILL
+        )
 
     def basic_skill(self, context: "Battle"):
         if self.loading:
-            self.buffs.add(ATKUp(0.14, 4))
+            self.buffs.add(ATKUp(0.21, 4))
+            ReportSkill(self, "重装与毁灭", True)
 
     def enhanced_skill(self, context: "Battle"):
         pass
 
     def sub_skill(self, context: "Battle"):
         pass
-
-    def normal_attack(self, target: "Unit") -> tuple[int, ...]:
-        dmg: list[int] = []
-        for _ in range(self.mag_count[1]):
-            dmg.append(
-                target.hit(
-                    self, add=round(self.atk * 0.27), dmg_split=self.mag_count[1]
-                )
-            )
-        return tuple(dmg)
-
-    def decider(self, context: "Battle") -> tuple[Action, ...]:
-        al: list[Action] = []
-        e_units = context.your_enemy(self.is_enemy)
-        for enemy in UnitChoiceDice("谁被攻击了？", e_units, 1).roll():
-            o_e_HP = enemy.hp
-            al.append(AttackAction(self, enemy, self.normal_attack(enemy), o_e_HP))
-        return tuple(al)

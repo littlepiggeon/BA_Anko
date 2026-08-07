@@ -1,5 +1,5 @@
-/test.py
-/.venv/
-/.vscode/
+test.py
+.venv
+.vscode
 .idea
 **/__pycache__/**
