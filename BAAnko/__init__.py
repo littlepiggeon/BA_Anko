@@ -1,7 +1,7 @@
 import random as rd
 import sys
 from abc import abstractmethod, ABC
-from enum import IntEnum, Flag
+from enum import Enum, IntEnum, Flag, auto
 from typing import Callable, Sequence, List, Union, Type, TextIO
 
 from colorama import init, Fore, Back, Style
@@ -14,10 +14,10 @@ init(autoreset=True)
 
 class Dice:
     def __init__(
-            self,
-            name: str,
-            maximum: int = 100,
-            correction: dict | None = None,
+        self,
+        name: str,
+        maximum: int = 100,
+        correction: dict | None = None,
     ):
         self.name = name
         self.maximum = maximum
@@ -36,7 +36,7 @@ class Dice:
 
 class ProbabilityDice:
     def __init__(
-            self, name: str, probability: float, show: bool = True, end: str = "\n"
+        self, name: str, probability: float, show: bool = True, end: str = "\n"
     ):
         self.name = name
         self.probability = probability
@@ -56,11 +56,11 @@ class ProbabilityDice:
 
 class UnitChoiceDice:
     def __init__(
-            self,
-            name: str,
-            choices: Sequence["Unit"],
-            times: int = 1,
-            repeatable: bool = False,
+        self,
+        name: str,
+        choices: Sequence["Unit"],
+        times: int = 1,
+        repeatable: bool = False,
     ):
         self.name = name
         self.choices = [i for i in choices if i.hp > 0]
@@ -107,7 +107,7 @@ W = Weapon
 
 
 def restraint_attribute_damage_multiplier(
-        attacker: "Unit", defender: "Unit"
+    attacker: "Unit", defender: "Unit"
 ) -> float | int:
     """属性克制伤害倍率"""
     table = (
@@ -183,16 +183,25 @@ class Barrier(LeveledBuff):
 
 class CritUp(RatedBuff):
     def __str__(self) -> str:
-        return f"暴击上升:{self.rate * 100:.0f}%"
+        return f"暴击值上升:{self.rate * 100:.0f}%"
 
     def take(self, obj: "Unit"):
         super().take(obj)
         obj.crit = round(obj.crit * (1 + self.rate))
 
 
+class CritRESUP(RatedBuff):
+    def __str__(self) -> str:
+        return f"暴击抵抗力上升:{self.rate * 100:.0f}%"
+
+    def take(self, obj: "Unit"):
+        super().take(obj)
+        obj.crit_res = round(obj.crit_res * (1 + self.rate))
+
+
 class DEFUp(RatedBuff):
     def __str__(self) -> str:
-        return f"防御上升:{self.rate * 100:.0f}%"
+        return f"防御力上升:{self.rate * 100:.0f}%"
 
     def take(self, obj: "Unit"):
         super().take(obj)
@@ -201,11 +210,20 @@ class DEFUp(RatedBuff):
 
 class ATKUp(RatedBuff):
     def __str__(self) -> str:
-        return f"攻击上升:{self.rate * 100:.0f}%"
+        return f"攻击力上升:{self.rate * 100:.0f}%"
 
     def take(self, obj: "Unit"):
         super().take(obj)
         obj.atk = round(obj.atk * (1 + self.rate))
+
+
+class HealingUP(RatedBuff):
+    def __str__(self) -> str:
+        return f"治疗力上升:{self.rate * 100:.0f}%"
+
+    def take(self, obj: "Unit"):
+        super().take(obj)
+        obj.atk = round(obj.healing * (1 + self.rate))
 
 
 class HPRegen(RatedBuff):
@@ -237,7 +255,6 @@ class Buffs:
         return "(" + " ".join(str(buff) for buff in self.buffs) + ")"
 
     def take(self, obj: "Unit"):
-        # 逆序遍历以便安全删除
         for i in range(len(self.buffs) - 1, -1, -1):
             buff = self.buffs[i]
             try:
@@ -253,60 +270,21 @@ class Buffs:
             return False
 
 
-# #################### ACTION SYSTEM ####################
-# 
-# 
-# class Action:
-#     def __init__(self, subject: "Unit", object_: "Unit"):
-#         self.subject = subject
-#         self.object = object_
-# 
-#     def __str__(self) -> str:
-#         return f"{self.subject} 对 {self.object} 行动"
-# 
-# 
-# class AttackAction(Action):
-#     def __init__(
-#             self,
-#             subject: "Unit",
-#             object_: "Unit",
-#             damages: Sequence[int],
-#             originEnemyHP: int,
-#     ):
-#         super().__init__(subject, object_)
-#         self.damages = damages
-#         self._enemyHP = originEnemyHP
-#         print(str(self))
-# 
-#     def __str__(self) -> str:
-#         resistance = ""
-#         match RADM(self.subject, self.object):
-#             case 0:
-#                 resistance = f"{Back.RED}Immune{Back.RESET}"
-#             case 0.5:
-#                 resistance = f"{Fore.BLUE}Resist{Fore.RESET}"
-#             case 1.5:
-#                 resistance = f"{Fore.LIGHTYELLOW_EX}Effective{Fore.RESET}"
-#             case 2:
-#                 resistance = f"{Fore.YELLOW}Weak{Fore.RESET}"
-# 
-#         dmg_str = " ".join(
-#             (str(dmg) if dmg else f"{Back.BLACK}MISS{Back.RESET}")
-#             for dmg in self.damages
-#         )
-#         return f"{self.subject} 攻击 {self.object} : {resistance}[{dmg_str}]total={(sum_dmg := sum(self.damages))}\n{self.object} HP: {self._enemyHP}-{sum_dmg}={self.object.hp}"
-# 
-
 #################### EVENT SYSTEM ####################
 class Event:
-    def __init__(self, name: str, action: Callable[["Battle"], None], condition: Callable[["Battle"], bool]):
+    def __init__(
+        self,
+        name: str,
+        action: Callable[["Battle"], None],
+        condition: Callable[["Battle"], bool],
+    ):
         self.name = name
         self.action = action
         self.condition = condition
         self.available = True
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}(\"{self.name}\")>"
+        return f'<{self.__class__.__name__}("{self.name}")>'
 
     def trigger(self, context: "Battle"):
         if self.available:
@@ -385,21 +363,24 @@ class Unit(ABC):
 
     name: str = "Unknown"
     affiliation: str = "Neutral"
+    is_enemy: bool = False
 
-    def __init__(self, nickname: str = "", is_enemy=False):
+    def __init__(self, nickname: str = ""):
         self.nickname = nickname if nickname else self.name
         self.hp = self.max_hp
         self.mag = self.mag_count[0]
         self.loading = False
         self.buffs = Buffs(self)
-        self.is_enemy = is_enemy
         self.event_manager = EventManager()
 
     def __str__(self) -> str:
         return f"{self.nickname}:{self.hp}{self.buffs}"
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}(name=\"{self.name}\", affiliation=\"{self.affiliation}\")>"
+        return f'<{self.__class__.__name__}(name="{self.name}", affiliation="{self.affiliation}")>'
+
+    def on_start(self, context):
+        pass
 
     def normal_attack(self, context: "Battle", flag=DMGFlag(0)):
         enemies = context.your_enemy(self.is_enemy)
@@ -410,11 +391,24 @@ class Unit(ABC):
                 hit_num = 1
             case _:
                 raise ValueError(f"Unknown weapon type")
-        self._attack(UnitChoiceDice("谁被攻击了？", enemies, hit_num).roll(),
-                     self.mag_count[1], 1, 0, self.mag_count[1], flag)
+        self._attack(
+            UnitChoiceDice("谁被攻击了？", enemies, hit_num).roll(),
+            self.mag_count[1],
+            1,
+            0,
+            self.mag_count[1],
+            flag,
+        )
 
-    def _attack(self, targets: Sequence["Unit"], attaking_num: int, rate: float | int, add: float | int,
-                dmg_split: int = 1, flag=DMGFlag(0)):
+    def _attack(
+        self,
+        targets: Sequence["Unit"],
+        attaking_num: int,
+        rate: float | int,
+        add: float | int,
+        dmg_split: int = 1,
+        flag=DMGFlag(0),
+    ):
         for target in targets:
             reporter = ReportDamage(self, target)
             reporter.start()
@@ -424,12 +418,12 @@ class Unit(ABC):
             reporter.report()
 
     def hit(
-            self,
-            attacker: "Unit",
-            rate: float | int = 1,
-            add: float | int = 0,
-            dmg_split: int = 1,
-            flag=DMGFlag(0)
+        self,
+        attacker: "Unit",
+        rate: float | int = 1,
+        add: float | int = 0,
+        dmg_split: int = 1,
+        flag=DMGFlag(0),
     ) -> tuple[int, DMGFlag]:
         if (not dmg_split.is_integer()) or dmg_split < 1:
             raise ValueError("你这伤害分摊数怎么回事？")
@@ -452,17 +446,13 @@ class Unit(ABC):
                 def_factor = 5
 
             damage = (
-                             attacker.atk
-                             * rate
-                             * RADM(attacker, self)
-                             * stability_factor
-                     ) / def_factor
+                attacker.atk * rate * RADM(attacker, self) * stability_factor
+            ) / def_factor
 
-            # 暴击判定
             crit_chance = (attacker.crit - self.crit_res) / (
-                    attacker.crit - self.crit_res + 666.66
+                attacker.crit - self.crit_res + 666.66
             )
-            crit_chance = max(0, min(1, crit_chance))  # 限制在0-1
+            crit_chance = max(0, min(1, crit_chance))
 
             if ProbabilityDice("", crit_chance, show=False).roll():
                 damage = damage * attacker.crit_dmg * (1 - self.crit_dmg_res)
@@ -477,7 +467,6 @@ class Unit(ABC):
 
             damage = round(damage)
 
-            # 护盾扣除
             if self.buffs.has_buff(Barrier):
                 for i in range(len(self.buffs.buffs) - 1, -1, -1):
                     if isinstance((buff := self.buffs.buffs[i]), Barrier):
@@ -492,18 +481,35 @@ class Unit(ABC):
                 self.hp -= damage
         return damage, flag
 
+    def recover(self, hp: int):
+        self.hp = min(self.max_hp, self.hp + hp)
+
     def decider(self, context: "Battle"):
+        if isinstance(self, Student):
+            if self.type == StudentType.SPECIEL:
+                return
         self.normal_attack(context)
 
     def act(self, context: "Battle"):
         with BuffRemainer(self):
+            if context.round == 1:
+                self.on_start(context)
             self.buffs.take(self)
             self.event_manager.trigger(context)
             self.decider(context)
 
 
+class StudentType(Enum):
+    STRIKER = auto()
+    SPECIEL = auto()
+
+
 class Student(Unit):
+    type: StudentType = StudentType.STRIKER
     ex_cost: int
+
+    def __init__(self, nickname: str = ""):
+        super().__init__(nickname)
 
     @abstractmethod
     def ex_skill(self, context: "Battle"):
@@ -521,10 +527,19 @@ class Student(Unit):
     def sub_skill(self, context: "Battle"):
         pass
 
+    def decider(self, context: "Battle"):
+        if self.type == StudentType.STRIKER:
+            super().decider(context)
+
 
 #################### BATTLE SYSTEM ####################
 class Report(ABC):
-    def __init__(self, subject: "Unit|None", object_: "Sequence[Unit]|Unit|None", file: TextIO = sys.stdout):
+    def __init__(
+        self,
+        subject: "Unit|None",
+        object_: "Sequence[Unit]|Unit|None",
+        file: TextIO = sys.stdout,
+    ):
         self.subject = subject
         self.object = object_
         self.file = file
@@ -561,18 +576,16 @@ class ReportDamage(Report):
 
     def start(self):
         self.active = True
-        self._print(f"{self.subject} 攻击 {self.object}：{self.resistance}[ ", end='')
+        self._print(f"{self.subject} 攻击 {self.object}  {self.resistance}[ ", end="")
 
     def record(self, damage: int, flag=DMGFlag(0)):
         if not self.active:
             raise Exception(f"{self.__class__.__name__}.start() first")
         self.delt_damage += damage
-        self._print(
-            f"{Back.LIGHTWHITE_EX if damage == 0 else ''}\
+        self._print(f"{Back.LIGHTWHITE_EX if damage == 0 else ''}\
 {Fore.RED if DMGFlag.CRIT in flag else ''}\
 {Style.BRIGHT if DMGFlag.SKILL in flag else ''}\
-{"MISS" if damage == 0 else damage}{Style.RESET_ALL}",
-            end=' ')
+{"MISS" if damage == 0 else damage}{Style.RESET_ALL}", end=" ")
 
     def stop(self):
         self.active = False
@@ -592,7 +605,9 @@ class ReportBuff(Report):
 
 
 class ReportSkill(Report):
-    def __init__(self, subject: "Unit", name: str, enhanced=False, file: TextIO = sys.stdout):
+    def __init__(
+        self, subject: "Unit", name: str, enhanced=False, file: TextIO = sys.stdout
+    ):
         super().__init__(subject, None, file)
         self.name = name
         self.enhanced = enhanced
@@ -623,6 +638,12 @@ class Battle:
         print(" ".join(str(u) for u in e_units))
         print(f"{'-' * 30}\n")
 
+        for e_unit in self.e_units:
+            e_unit.is_enemy = True
+
+        for unit in self.p_units + self.e_units:
+            unit.on_start(self)
+
     def check_victory(self) -> bool:
         p_alive = any(self.alive_p_units)
         e_alive = any(self.alive_e_units)
@@ -637,14 +658,35 @@ class Battle:
     def __getattr__(self, name):
         match name:
             case "alive_p_units":
-                return [p_unit for p_unit in self.p_units if p_unit.hp > 0]
+                return [
+                    p_unit
+                    for p_unit in self.p_units
+                    if p_unit.hp > 0
+                    and (
+                        (False if p_unit.type == StudentType.SPECIEL else True)
+                        if isinstance(p_unit, Student)
+                        else True
+                    )
+                ]
             case "alive_e_units":
-                return [e_unit for e_unit in self.e_units if e_unit.hp > 0]
+                return [
+                    e_unit
+                    for e_unit in self.e_units
+                    if e_unit.hp > 0
+                    and (
+                        (False if e_unit.type == StudentType.SPECIEL else True)
+                        if isinstance(e_unit, Student)
+                        else True
+                    )
+                ]
             case _:
                 raise AttributeError(f'"{name}"')
 
     def your_enemy(self, is_enemy: bool):
         return self.alive_p_units if is_enemy else self.alive_e_units
+
+    def your_pal(self, is_enemy: bool):
+        return self.alive_e_units if is_enemy else self.alive_p_units
 
     def start(self, max_turns=100):
         while self.round <= max_turns:
@@ -661,10 +703,10 @@ class Battle:
                     if p_unit.ex_cost <= self.cost:
                         if self.sensei:
                             if (
-                                    input(
-                                        f"是否使用EX技能({p_unit.ex_cost}/{self.cost})[Y/N(默认)]"
-                                    ).upper()
-                                    == "Y"
+                                input(
+                                    f"是否使用EX技能({p_unit.ex_cost}/{self.cost})[Y/N(默认)]"
+                                ).upper()
+                                == "Y"
                             ):
                                 p_unit.ex_skill(self)
                         else:

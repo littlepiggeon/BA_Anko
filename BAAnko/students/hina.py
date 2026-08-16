@@ -24,19 +24,21 @@ class SorasakiHina(Student):
 
     ex_cost = 7
 
-    def __init__(self, nickname: str = "", is_enemy=False):
-        super().__init__(nickname, is_enemy)
-
     def ex_skill(self, context: "Battle"):
-        print(f"{self.nickname}使用了【终幕：伊施波设】")
-
         context.cost -= self.ex_cost
+        ReportSkill(self, "终幕：伊施波设").report()
         e_units = context.your_enemy(self.is_enemy)
         self._attack(
-            UnitChoiceDice("谁被攻击了？", e_units,
-                           Dice("攻击到的人数：", min(4, len(e_units))).roll()
-                           ).roll(),
-            10, 0.636, self.atk * 0.027, 1, DMGFlag.SKILL
+            UnitChoiceDice(
+                "谁被攻击了？",
+                e_units,
+                Dice("攻击到的人数：", min(4, len(e_units))).roll(),
+            ).roll(),
+            10,
+            0.636,
+            self.atk * 0.027,
+            1,
+            DMGFlag.SKILL,
         )
 
     def basic_skill(self, context: "Battle"):

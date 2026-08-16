@@ -23,11 +23,10 @@ class TakanashiHoshino(Student):
     attr_def = Attribute.YELLOW
 
     ex_cost = 4
+    b_s_used_up = False
 
-    def __init__(self, nickname: str = "", is_enemy: bool = False):
-        super().__init__(nickname, is_enemy)
-        self.b_s_used_up = False
-        self.enhanced_skill()
+    def on_start(self, context):
+        self.enhanced_skill(context)
 
     def ex_skill(self, context: "Battle"):
         ReportSkill(self, "战术镇压").report()
@@ -46,7 +45,7 @@ class TakanashiHoshino(Student):
             self.buffs.add(HPRegen(1, 5))
             self.b_s_used_up = True
 
-    def enhanced_skill(self, context: "Battle|None" = None):
+    def enhanced_skill(self, context: "Battle"):
         ReportSkill(self, "对策委员长", True).report()
         self.buffs.add(DEFUp(0.14, -1))
 

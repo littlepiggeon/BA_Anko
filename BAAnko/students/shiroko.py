@@ -24,18 +24,16 @@ class SunaookamiShiroko(Student):
 
     ex_cost = 2
 
-    def __init__(self, nickname: str = "", is_enemy=False):
-        super().__init__(nickname, is_enemy)
-        ReportSkill(self, "瞄准弱点", True).report()
-        self.buffs.add(CritUp(0.14, -1))
-
-        def trigger(context: Battle):
-            if context.round % 5 == 0:
+    def on_start(self, context):
+        def trigger(_context: Battle):
+            if _context.round % 5 == 0:
                 return True
             else:
                 return False
 
         self.event_manager.add(Event("白子的小技能", self.basic_skill, trigger))
+
+        self.sub_skill(context)
 
     def ex_skill(self, context: "Battle"):
         ReportSkill(self, "召唤无人机：火力支援，开始").report()
@@ -54,4 +52,5 @@ class SunaookamiShiroko(Student):
         pass
 
     def sub_skill(self, context: Battle):
-        pass
+        ReportSkill(self, "瞄准弱点", True).report()
+        self.buffs.add(CritUp(0.14, -1))
