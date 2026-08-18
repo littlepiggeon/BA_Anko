@@ -26,7 +26,7 @@ class KuromiSerika(Student):
 
     def on_start(self, context):
         def trigger(_context):
-            if _context % 5 == 0:
+            if _context.round % 5 == 0:
                 return True
             else:
                 return False

@@ -46,7 +46,7 @@ class OkusoraAyane(Student):
         for pal in UnitChoiceDice(
             "治疗了谁？",
             context.your_pal(self.is_enemy),
-            sample((1, 2, 3), 1, counts=(5, 2, 1))[0],
+            sample((1, 2, 3), 1, counts=(1, 5, 3))[0],
         ).roll():
             pal.recover(round(self.healing * 1.18))
 

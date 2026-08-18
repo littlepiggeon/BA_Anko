@@ -199,6 +199,15 @@ class CritRESUP(RatedBuff):
         obj.crit_res = round(obj.crit_res * (1 + self.rate))
 
 
+class CritDMGUP(RatedBuff):
+    def __str__(self) -> str:
+        return f"暴击伤害上升:{self.rate * 100:.0f}%"
+
+    def take(self, obj: "Unit"):
+        super().take(obj)
+        obj.crit_dmg = obj.crit_dmg * (1 + self.rate)
+
+
 class DEFUp(RatedBuff):
     def __str__(self) -> str:
         return f"防御力上升:{self.rate * 100:.0f}%"
@@ -254,7 +263,9 @@ class Buffs:
 
     def _buff_add(self, buff):
         ReportBuff(self.master, buff).report()
+        repeat=False
         for i in self.buffs:
+            repeat=True
             if isinstance(i, buff.__class__):
                 if isinstance(i, LeveledBuff):
                     i.level += buff.level
@@ -262,7 +273,7 @@ class Buffs:
                     i.rate += buff.rate
                 if i.duration > -1:
                     i.duration = (i.duration + buff.duration) // 2
-        else:
+        if not repeat:
             self.buffs.append(buff)
 
     def add(self, buff: "Buff|Buffs"):
@@ -356,16 +367,28 @@ class BuffRemainer:
 
     def __enter__(self):
         # 备份关键属性
-        self.backup_atk = self.subject.atk
-        self.backup_def = self.subject.def_
-        self.backup_crit = self.subject.crit
+        self.bak_atk = self.subject.atk
+        self.bak_def = self.subject.def_
+        self.bak_healing = self.subject.healing
+        self.bak_accuracy = self.subject.accuracy
+        self.bak_evasion = self.subject.evasion
+        self.bak_crit = self.subject.crit
+        self.bak_crit_res = self.subject.crit_res
+        self.bak_crit_dmg = self.subject.crit_dmg
+        self.bak_crit_dmg_res = self.subject.crit_dmg_res
         # 可以扩展其他属性
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         # 恢复属性
-        self.subject.atk = self.backup_atk
-        self.subject.def_ = self.backup_def
-        self.subject.crit = self.backup_crit
+        self.subject.atk = self.bak_atk
+        self.subject.def_ = self.bak_def
+        self.subject.healing = self.bak_healing
+        self.subject.accuracy = self.bak_accuracy
+        self.subject.evasion = self.bak_evasion
+        self.subject.crit = self.bak_crit
+        self.subject.crit_res = self.bak_crit_res
+        self.subject.crit_dmg = self.bak_crit_dmg
+        self.subject.crit_dmg_res = self.bak_crit_dmg_res
 
 
 class Unit(ABC):
@@ -761,7 +784,7 @@ class Battle:
                 self.cost = min(10, self.cost + 1)
 
                 if self.check_victory():
-                    break
+                    return
 
             if self.sensei:
                 input()
@@ -782,12 +805,10 @@ class Battle:
                 print()
 
                 if self.check_victory():
-                    break
+                    return
 
             if self.sensei:
                 input()
-            if self.check_victory():
-                break
 
             self.round += 1
 

@@ -35,17 +35,16 @@ if text_filename is None:
 text_file = open(text_filename, encoding="utf-8")
 
 while line := text_file.readline():
-    if line!='\n':
-        work_tile.append(
-            {
-                "senderId": 3,
-                "senderSkinIndex": 0,
-                "messageType": 0,
-                "sendMessageName": "",
-                "messageContentList": [line.strip('\n').strip()],
-                "boxAlign": False,
-                "storageInfo": {},
-            }
-        )
+    work_tile.append(
+        {
+            "senderId": 3,
+            "senderSkinIndex": 0,
+            "messageType": 0,
+            "sendMessageName": "",
+            "messageContentList": [line.strip('\n').strip()],
+            "boxAlign": False,
+            "storageInfo": {},
+        }
+    )
 
 json.dump(work_tile, open(filename, "w", encoding="utf-8"))
