@@ -33,9 +33,10 @@ class SunaookamiShiroko(Student):
 
         self.event_manager.add(Event("白子的小技能", self.basic_skill, trigger))
 
-        self.sub_skill(context)
+        self.enhanced_skill(context)
 
     def ex_skill(self, context: "Battle"):
+        context.cost -= self.ex_cost
         ReportSkill(self, "召唤无人机：火力支援，开始").report()
         context.cost -= self.ex_cost
         e_units = context.your_enemy(self.is_enemy)
@@ -48,9 +49,9 @@ class SunaookamiShiroko(Student):
         targets = UnitChoiceDice("谁被攻击了？", e_units, min(3, len(e_units))).roll()
         self._attack(targets, 1, 0.19365, 1, 1, DMGFlag.SKILL)
 
-    def enhanced_skill(self, context: Battle):
+    def sub_skill(self, context: Battle):
         pass
 
-    def sub_skill(self, context: Battle):
+    def enhanced_skill(self, context: Battle):
         ReportSkill(self, "瞄准弱点", True).report()
         self.buffs.add(CritUp(0.14, -1))

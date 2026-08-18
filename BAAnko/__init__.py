@@ -223,7 +223,16 @@ class HealingUP(RatedBuff):
 
     def take(self, obj: "Unit"):
         super().take(obj)
-        obj.atk = round(obj.healing * (1 + self.rate))
+        obj.healing = round(obj.healing * (1 + self.rate))
+
+
+class EvasionUP(RatedBuff):
+    def __str__(self) -> str:
+        return f"闪避值上升:{self.rate * 100:.0f}%"
+
+    def take(self, obj: "Unit"):
+        super().take(obj)
+        obj.evasion = round(obj.evasion * (1 + self.rate))
 
 
 class HPRegen(RatedBuff):
@@ -232,7 +241,7 @@ class HPRegen(RatedBuff):
 
     def take(self, obj: "Unit"):
         super().take(obj)
-        obj.hp = min(obj.max_hp, obj.hp + round(obj.healing * self.rate))
+        obj.recover(round(obj.healing * self.rate))
 
 
 class Buffs:
@@ -243,16 +252,32 @@ class Buffs:
     def __iter__(self):
         return self.buffs
 
-    def add(self, other: Union[Buff, "Buffs"]):
-        if isinstance(other, Buff):
-            self.buffs.append(other)
-        elif isinstance(other, Buffs):
-            self.buffs.extend(other.buffs)
+    def _buff_add(self, buff):
+        ReportBuff(self.master, buff).report()
+        for i in self.buffs:
+            if isinstance(i, buff.__class__):
+                if isinstance(i, LeveledBuff):
+                    i.level += buff.level
+                elif isinstance(i, RatedBuff):
+                    i.rate += buff.rate
+                if i.duration > -1:
+                    i.duration = (i.duration + buff.duration) // 2
+        else:
+            self.buffs.append(buff)
+
+    def add(self, buff: "Buff|Buffs"):
+        if isinstance(buff, Buff):
+            self._buff_add(buff)
+        elif isinstance(buff, Buffs):
+            # pyrefly: ignore [not-iterable]
+            for i in buff:
+                self._buff_add(i)
 
     def __str__(self) -> str:
-        if not self.buffs:
+        if len(self.buffs) == 0:
             return ""
-        return "(" + " ".join(str(buff) for buff in self.buffs) + ")"
+        else:
+            return "(" + " ".join(str(buff) for buff in self.buffs) + ")"
 
     def take(self, obj: "Unit"):
         for i in range(len(self.buffs) - 1, -1, -1):
@@ -405,7 +430,7 @@ class Unit(ABC):
         targets: Sequence["Unit"],
         attaking_num: int,
         rate: float | int,
-        add: float | int,
+        add: float | int = 0,
         dmg_split: int = 1,
         flag=DMGFlag(0),
     ):
@@ -483,6 +508,7 @@ class Unit(ABC):
 
     def recover(self, hp: int):
         self.hp = min(self.max_hp, self.hp + hp)
+        ReportRecover(self, hp).report()
 
     def decider(self, context: "Battle"):
         if isinstance(self, Student):
@@ -492,8 +518,6 @@ class Unit(ABC):
 
     def act(self, context: "Battle"):
         with BuffRemainer(self):
-            if context.round == 1:
-                self.on_start(context)
             self.buffs.take(self)
             self.event_manager.trigger(context)
             self.decider(context)
@@ -593,6 +617,20 @@ class ReportDamage(Report):
     def report(self):
         self.stop()
         self._print(f"]total={self.delt_damage}")
+
+
+class ReportRecover(Report):
+    def __init__(
+        self,
+        subject: "Unit",
+        hp: int,
+        file: TextIO = sys.stdout,
+    ):
+        super().__init__(subject, None, file)
+        self.hp = hp
+
+    def report(self):
+        self._print(f"{self.subject} 回复了 {self.hp} HP")
 
 
 class ReportBuff(Report):
@@ -722,10 +760,11 @@ class Battle:
                 print()
                 self.cost = min(10, self.cost + 1)
 
+                if self.check_victory():
+                    break
+
             if self.sensei:
                 input()
-            if self.check_victory():
-                break
 
             print(f"\n【敌方回合】")
             for e_unit in self.e_units:
@@ -741,6 +780,9 @@ class Battle:
                 else:
                     e_unit.act(self)
                 print()
+
+                if self.check_victory():
+                    break
 
             if self.sensei:
                 input()

@@ -27,7 +27,21 @@ class OkusoraAyane(Student):
 
     ex_cost = 4
 
+    def on_start(self, context):
+
+        def trigger(_context: Battle):
+            if _context.round % 6 == 0:
+                return True
+            else:
+                return False
+
+        self.event_manager.add(Event("绫音的小技能", self.basic_skill, trigger))
+
+        self.enhanced_skill(context)
+        self.sub_skill(context)
+
     def ex_skill(self, context: "Battle"):
+        context.cost -= self.ex_cost
         ReportSkill(self, "特级快递：战斗支援物资").report()
         for pal in UnitChoiceDice(
             "治疗了谁？",
