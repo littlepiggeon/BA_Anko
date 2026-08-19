@@ -26,6 +26,15 @@ class Nana(Student):
 
     ex_cost = 5
 
+    def on_start(self, context):
+        def trigger(_context):
+            if _context.round % 5 == 0:
+                return True
+            else:
+                return False
+    
+        self.event_manager.add(Event("小技能", self.basic_skill, trigger))
+
     def ex_skill(self, context: "Battle"):
         ReportSkill(self, "飞吧——！").report()
         self._attack(

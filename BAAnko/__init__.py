@@ -281,7 +281,7 @@ class Buffs:
             self._buff_add(buff)
         elif isinstance(buff, Buffs):
             # pyrefly: ignore [not-iterable]
-            for i in buff:
+            for i in buff: # type: ignore
                 self._buff_add(i)
 
     def __str__(self) -> str:
