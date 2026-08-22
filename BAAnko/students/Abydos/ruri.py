@@ -1,30 +1,30 @@
 import random
 
-from .. import *
+from ... import *
 
 
-class Nana(Student):
-    max_hp = 3300
-    atk = 300
-    def_ = 30
+class Ruri(Student):
+    max_hp = 2500
+    atk = 289
+    def_ = 20
     healing = 1000
-    accuracy = 700
-    evasion = 600
-    crit = 125
+    accuracy = 1500
+    evasion = 1800
+    crit = 100
     crit_res = 100
-    crit_dmg = 3
+    crit_dmg = 2.5
     crit_dmg_res = 0.5
-    stability = 1900
+    stability = 2000
     mag_count = (120, 16)
 
-    name = "柒"
+    name = "琉"
     affiliation = "对策委员会"
 
     weapon = W.AR
     attr_atk = Attribute.BLUE
     attr_def = Attribute.GREEN
 
-    ex_cost = 5
+    ex_cost = 3
 
     def on_start(self, context):
         def trigger(_context):
@@ -32,29 +32,20 @@ class Nana(Student):
                 return True
             else:
                 return False
-    
+
         self.event_manager.add(Event("小技能", self.basic_skill, trigger))
 
     def ex_skill(self, context: "Battle"):
-        ReportSkill(self, "飞吧——！").report()
-        self._attack(
-            UnitChoiceDice("击中谁？", context.your_enemy(self.is_enemy)).roll(),
-            1,
-            10,
-            flag=DMGFlag.SKILL,
-        )
+        context.cost -= self.ex_cost
+        ReportSkill(self, "时亭之箱-算力加速").report()
+        self.buffs.add(CritUp(3, 3))
+        self.buffs.add(ATKUp(0.8, 3))
+        self.loading = True
 
     def basic_skill(self, context: "Battle"):
-        ReportSkill(self, "倾泻").report()
-        self._attack(
-            UnitChoiceDice(
-                "击中谁？",
-                context.your_enemy(self.is_enemy),
-                random.sample((1, 2, 3, 4, 5), 1, counts=(10, 9, 8, 5, 2))[0],
-            ).roll(),
-            4,
-            self.mag / 32,
-        )
+        ReportSkill(self, "算计集中调度-闪避").report()
+        self.mag = min(self.mag_count[1], self.mag + 40)
+        self.buffs.add(EvasionUP(1, 1))
 
     def enhanced_skill(self, context: "Battle"):
         ReportSkill(self, "充能武器", True).report()

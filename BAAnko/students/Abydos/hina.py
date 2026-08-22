@@ -1,4 +1,4 @@
-from .. import *
+from ... import *
 
 
 class SorasakiHina(Student):

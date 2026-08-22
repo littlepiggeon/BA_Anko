@@ -1,6 +1,6 @@
 from random import sample
 
-from .. import *
+from ... import *
 
 
 class OkusoraAyane(Student):
@@ -20,7 +20,7 @@ class OkusoraAyane(Student):
     name = "绫音"
     affiliation = "对策委员会"
 
-    type = StudentType.SPECIEL
+    type = StudentType.SPECIAL
     weapon = W.HG
     attr_atk = Attribute.YELLOW
     attr_def = Attribute.RED

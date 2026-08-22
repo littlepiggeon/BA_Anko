@@ -100,7 +100,7 @@ class Weapon(IntEnum):
     RL = 8  # 导弹发射器
     MT = 9  # 迫击炮
     FT = 10  # 火焰喷射器
-    SPECEIL = 99
+    SPECIAL = 99
 
 
 W = Weapon
@@ -535,7 +535,7 @@ class Unit(ABC):
 
     def decider(self, context: "Battle"):
         if isinstance(self, Student):
-            if self.type == StudentType.SPECIEL:
+            if self.type == StudentType.SPECIAL:
                 return
         self.normal_attack(context)
 
@@ -548,7 +548,7 @@ class Unit(ABC):
 
 class StudentType(Enum):
     STRIKER = auto()
-    SPECIEL = auto()
+    SPECIAL = auto()
 
 
 class Student(Unit):
@@ -607,9 +607,9 @@ class ReportDamage(Report):
             raise Exception("你要造反？！")
 
         super().__init__(subject, object_, file)
-        self.oringinal_hp = object_.hp
+        self.original_hp = object_.hp
         self.active = False
-        self.delt_damage = 0
+        self.dealt_damage = 0
         self.resistance = ""
         match RADM(subject, object_):
             case 0:
@@ -628,7 +628,7 @@ class ReportDamage(Report):
     def record(self, damage: int, flag=DMGFlag(0)):
         if not self.active:
             raise Exception(f"{self.__class__.__name__}.start() first")
-        self.delt_damage += damage
+        self.dealt_damage += damage
         self._print(f"{Back.LIGHTWHITE_EX if damage == 0 else ''}\
 {Fore.RED if DMGFlag.CRIT in flag else ''}\
 {Style.BRIGHT if DMGFlag.SKILL in flag else ''}\
@@ -639,7 +639,7 @@ class ReportDamage(Report):
 
     def report(self):
         self.stop()
-        self._print(f"]total={self.delt_damage}")
+        self._print(f"]total={self.dealt_damage}")
 
 
 class ReportRecover(Report):
@@ -724,7 +724,7 @@ class Battle:
                     for p_unit in self.p_units
                     if p_unit.hp > 0
                     and (
-                        (False if p_unit.type == StudentType.SPECIEL else True)
+                        (False if p_unit.type == StudentType.SPECIAL else True)
                         if isinstance(p_unit, Student)
                         else True
                     )
@@ -735,7 +735,7 @@ class Battle:
                     for e_unit in self.e_units
                     if e_unit.hp > 0
                     and (
-                        (False if e_unit.type == StudentType.SPECIEL else True)
+                        (False if e_unit.type == StudentType.SPECIAL else True)
                         if isinstance(e_unit, Student)
                         else True
                     )

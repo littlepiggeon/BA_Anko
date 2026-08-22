@@ -1,6 +1,6 @@
 import random
 
-from .. import *
+from ... import *
 
 
 class IzayoiNonomi(Student):
